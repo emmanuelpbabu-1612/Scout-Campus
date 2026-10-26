@@ -11,7 +11,8 @@ demonstrate every core OOP concept with a real Swing + MySQL stack.
 ScoutCampus/
 ├── sql/
 │   └── schema.sql                 # Run this first to create the database
-├── lib/                           # Put mysql-connector-j-x.x.x.jar here
+├── lib/                           # FlatLaf and MySQL Connector/J dependencies
+│   └── flatlaf-3.6.2.jar
 ├── src/scoutcampus/
 │   ├── Main.java                  # Entry point
 │   ├── model/                     # User (abstract), Student, Admin, Project, Application, Opportunity
@@ -33,31 +34,94 @@ ScoutCampus/
    ```
    mysql -u root -p < sql/schema.sql
    ```
+   **Warning:** `sql/schema.sql` starts with `DROP DATABASE IF EXISTS scoutcampus;`.
+   It deletes and recreates that database, including all of its data. Only run
+   it on a new/empty database or after making a backup.
    This creates the `scoutcampus` database, all tables, and a default admin:
    `admin@scoutcampus.com` / `admin123`.
-3. Open `src/scoutcampus/dao/DBConnection.java` and update `USER` / `PASSWORD`
-   to match your local MySQL credentials.
+3. Set the `DB_USER` and `DB_PASSWORD` environment variables to credentials for
+   a MySQL account allowed to connect from `localhost`. The app connects to
+   `jdbc:mysql://localhost:3306/scoutcampus` with its configured connection options.
 
-### 2. MySQL Connector/J
-Download **MySQL Connector/J** (the JDBC driver) and place the `.jar` in `lib/`.
-Get it from: https://dev.mysql.com/downloads/connector/j/ (choose "Platform Independent").
+In PowerShell, set credentials in the same terminal before launching the app:
+
+```powershell
+$env:DB_USER = "scoutcampus_app"
+$env:DB_PASSWORD = Read-Host "Database password"
+java -cp "build;lib/*" scoutcampus.Main
+```
+
+### 2. Dependencies
+FlatLaf 3.6.2 is included in `lib/` and provides the dark Swing look and feel.
+VS Code loads JARs from this folder through `.vscode/settings.json`.
+
+MySQL Connector/J is required at runtime for database login and data access, but
+is not included. Download the platform-independent JAR from
+https://dev.mysql.com/downloads/connector/j/ and place it in `lib/`. The project
+compiles without this driver, but database operations will report a missing
+driver until it is added. The application checks for the driver at startup and
+prints a clear warning to the console if it is missing; the login window still
+opens, but database actions will fail until the JAR is added to the runtime
+classpath.
 
 ### 3. Compile & Run
 
-From the `ScoutCampus/` folder:
+From the project folder in PowerShell:
 
 ```bash
-# Compile
-javac -cp "lib/mysql-connector-j-*.jar" -d build $(find src -name "*.java")
+# Compile (FlatLaf is required; Connector/J is optional for compilation)
+javac -cp "lib/*" -d build (Get-ChildItem src -Recurse -Filter *.java | ForEach-Object FullName)
 
 # Run
-java -cp "build:lib/mysql-connector-j-*.jar" scoutcampus.Main
+java -cp "build;lib/*" scoutcampus.Main
 ```
 
-On Windows, replace `:` with `;` in the `-cp` classpath, and `$(find src -name "*.java")`
-with a listing of your `.java` files (or open the project in an IDE like IntelliJ/Eclipse,
-add the jar to Build Path, and run `Main.java` directly — this is the easiest route for
-a classroom demo).
+In VS Code, open this project folder and run the **Scout Campus** launch
+configuration. For a Windows distribution, include the compiled `build/` folder
+and the complete `lib/` folder beside it, then launch with
+`java -cp "build;lib/*" scoutcampus.Main`. Keep the Connector/J JAR in `lib/`
+in the distribution so database login works.
+
+### Verify the database
+
+The local Windows `MySQL80` service is running, but the `mysql` command-line
+client is not on PATH, so the database and its tables could not be confirmed
+here. In MySQL Workbench, connect to the local server and run:
+
+```sql
+SHOW DATABASES LIKE 'scoutcampus';
+USE scoutcampus;
+SHOW TABLES;
+```
+
+If the database is missing and there is no data to preserve, open PowerShell in
+the project folder and run:
+
+```powershell
+mysql -u root -p < .\sql\schema.sql
+```
+
+Enter the MySQL root password when prompted. If `mysql` is not recognized, use
+the Workbench SQL editor to open and execute `sql/schema.sql`, or run `mysql.exe`
+using its full path under the MySQL Server `bin` directory.
+
+### Optional dedicated application account
+
+Instead of using `root`, create a restricted account from Workbench or a root
+MySQL session. Replace the sample password before running:
+
+```sql
+CREATE USER 'scoutcampus_app'@'localhost' IDENTIFIED BY 'replace-with-a-strong-password';
+GRANT SELECT, INSERT, UPDATE ON scoutcampus.students TO 'scoutcampus_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE ON scoutcampus.projects TO 'scoutcampus_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE ON scoutcampus.applications TO 'scoutcampus_app'@'localhost';
+GRANT SELECT, INSERT ON scoutcampus.opportunities TO 'scoutcampus_app'@'localhost';
+GRANT SELECT, INSERT ON scoutcampus.saved_opportunities TO 'scoutcampus_app'@'localhost';
+```
+
+Set `DB_USER` to `scoutcampus_app` and `DB_PASSWORD` to the chosen password.
+Run the schema first using an administrator account; the app account
+intentionally does not have schema-management permissions.
 
 ## How It Maps to the Requirements
 

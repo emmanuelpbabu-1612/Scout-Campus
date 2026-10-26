@@ -1,6 +1,12 @@
 build/
 lib/*.jar
+!lib/flatlaf-3.6.2.jar
 *.class
 .idea/
 *.iml
 out/
+
+lib/
+.classpath
+.project
+.vscode/
